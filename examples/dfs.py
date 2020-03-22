@@ -87,17 +87,27 @@ def visit_node(i):
         yield {'request': BEvent(name="CHECK_IF_VISITED", data={i.get_value(): 'g'})}
 
 
-def visit_descendants(i):
+def finish(i):
     while True:
         yield {'waitFor': BEvent(name="UNFINISHED", data={i.get_value(): 'g'})}
+        if i.get_children():
+            yield {'request': BEvent(name="VISIT_ALL_DESCENDANTS", data={i.get_value(): 'g'})}
+        else:
+            yield {'request': BEvent(name="ALL_DESCENDANTS_VISITED", data={i.get_value(): 'g'})}
+            yield {'request': BEvent(name="CHECK_IF_FINISHED", data={i.get_value(): 'g'})}
+
+
+def visit_descendants(i):
+    while True:
+        yield {'waitFor': BEvent(name="VISIT_ALL_DESCENDANTS", data={i.get_value(): 'g'})}
         for j in i.get_children():
             yield {'request': BEvent(name="CHECK_IF_VISITED", data={j.get_value(): 'g'})}
             yield {'waitFor': BEvent(name="VISITED", data={j.get_value(): 'g'})}
             if not j.get_children():
-                yield {'request': BEvent(name="VISIT_ALL_DESCENDANTS", data={j.get_value(): 'g'})}
+                yield {'request': BEvent(name="ALL_DESCENDANTS_VISITED", data={j.get_value(): 'g'})}
             yield {'request': BEvent(name="CHECK_IF_FINISHED", data={j.get_value(): 'g'})}
             yield {'waitFor': BEvent(name="FINISHED", data={j.get_value(): 'g'})}
-        yield {'request': BEvent(name="VISIT_ALL_DESCENDANTS", data={i.get_value(): 'g'})}
+        yield {'request': BEvent(name="ALL_DESCENDANTS_VISITED", data={i.get_value(): 'g'})}
         yield {'request': BEvent(name="CHECK_IF_FINISHED", data={i.get_value(): 'g'})}
 
 
@@ -111,7 +121,7 @@ def mark_node_as_visited(i):
 
 def mark_node_as_finished(i):
     while True:
-        yield {'waitFor': BEvent(name="VISIT_ALL_DESCENDANTS", data={i.get_value(): 'g'})}
+        yield {'waitFor': BEvent(name="ALL_DESCENDANTS_VISITED", data={i.get_value(): 'g'})}
         # FINISH
         finished_nodes.append(i)
 
@@ -145,6 +155,7 @@ if __name__ == "__main__":
     b_program = BProgram(bthreads=[sensor(i) for i in graph] +
                                   [sensor_2(i) for i in graph] +
                                   [visit_node(i) for i in graph] +
+                                  [finish(i) for i in graph] +
                                   [visit_descendants(i) for i in graph] +
                                   [mark_node_as_visited(i) for i in graph] +
                                   [mark_node_as_finished(i) for i in graph] +
