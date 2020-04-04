@@ -1,26 +1,28 @@
-# undirected connected graph
-
 from model.b_event import BEvent
 from execution.listeners.print_b_program_runner_listener import PrintBProgramRunnerListener
 from model.bprogram import BProgram
 from model.event_selection.bubble_event_selection import BubbleEventSelectionStrategy
 
 # public variables
-events = ["UNVISITED", "VISITED", "START", "ALL_NODES_VISITED", "ALL_NEIGHBORS_VISITED",
+events = ["UNVISITED", "VISITED", "START", "ALL_NODES_VISITED", "ALL_DESCENDENTS_VISITED",
            "CHECK_IF_FINISHED", "VISIT"]
 
 
-class Node:
-    def __init__(self, id, neighbors=None):
+class TreeNode:
+    def __init__(self, id, parent, children=None):
         self.id = id
-        self.neighbors = neighbors
+        self.parent = parent
+        self.children = children
         self.visited = False
 
-    def get_neighbors(self):
-        return self.neighbors
+    def get_parent(self):
+        return self.parent
 
-    def set_neighbors(self, neighbors):
-        self.neighbors = neighbors
+    def set_parent(self, parent):
+        self.parent = parent
+
+    def get_children(self):
+        return self.children
 
     def visited(self):
         return self.visited
@@ -32,20 +34,22 @@ class Node:
         return self.id
 
 
-graph = []
-for i in range(9):
-    graph.append(Node(i))
+n6 = TreeNode(6, None)
+n5 = TreeNode(5, None)
+n4 = TreeNode(4, None)
+n3 = TreeNode(3, None)
+n2 = TreeNode(2, None, [n6])
+n1 = TreeNode(1, None, [n3, n4, n5])
+n0 = TreeNode(0, None, [n1, n2])
 
-graph[0].set_neighbors([graph[1], graph[8]])
-graph[1].set_neighbors([graph[0]])
-graph[2].set_neighbors([graph[3], graph[4], graph[5], graph[8]])
-graph[3].set_neighbors([graph[2]])
-graph[4].set_neighbors([graph[2], graph[7]])
-graph[5].set_neighbors([graph[2], graph[6]])
-graph[6].set_neighbors([graph[5], graph[7], graph[8]])
-graph[7].set_neighbors([graph[6], graph[4]])
-graph[8].set_neighbors([graph[0], graph[2], graph[6]])
+n1.set_parent(n0)
+n2.set_parent(n0)
+n3.set_parent(n1)
+n4.set_parent(n1)
+n5.set_parent(n1)
+n6.set_parent(n2)
 
+graph = [n0, n1, n2, n3, n4, n5, n6]
 visited_nodes = []
 finished_nodes = []
 
@@ -86,19 +90,24 @@ def visit_node(i):
 def finish(i):
     while True:
         yield {'waitFor': BEvent(name="UNFINISHED", data={i.get_id(): 'g'})}
-        yield {'request': BEvent(name="VISIT_ALL_NEIGHBORS", data={i.get_id(): 'g'})}
+        if i.get_children():
+            yield {'request': BEvent(name="VISIT_ALL_DESCENDANTS", data={i.get_id(): 'g'})}
+        else:
+            yield {'request': BEvent(name="ALL_DESCENDANTS_VISITED", data={i.get_id(): 'g'})}
+            yield {'request': BEvent(name="CHECK_IF_FINISHED", data={i.get_id(): 'g'})}
 
 
-def visit_neighbors(i):
+def visit_descendants(i):
     while True:
-        yield {'waitFor': BEvent(name="VISIT_ALL_NEIGHBORS", data={i.get_id(): 'g'})}
-        for j in i.get_neighbors():
-            if j not in visited_nodes:
-                yield {'request': BEvent(name="CHECK_IF_VISITED", data={j.get_id(): 'g'})}
-                yield {'waitFor': BEvent(name="VISITED", data={j.get_id(): 'g'})}
-                yield {'request': BEvent(name="CHECK_IF_FINISHED", data={j.get_id(): 'g'})}
-                yield {'waitFor': BEvent(name="FINISHED", data={j.get_id(): 'g'})}
-        yield {'request': BEvent(name="ALL_NEIGHBORS_VISITED", data={i.get_id(): 'g'})}
+        yield {'waitFor': BEvent(name="VISIT_ALL_DESCENDANTS", data={i.get_id(): 'g'})}
+        for j in i.get_children():
+            yield {'request': BEvent(name="CHECK_IF_VISITED", data={j.get_id(): 'g'})}
+            yield {'waitFor': BEvent(name="VISITED", data={j.get_id(): 'g'})}
+            if not j.get_children():
+                yield {'request': BEvent(name="ALL_DESCENDANTS_VISITED", data={j.get_id(): 'g'})}
+            yield {'request': BEvent(name="CHECK_IF_FINISHED", data={j.get_id(): 'g'})}
+            yield {'waitFor': BEvent(name="FINISHED", data={j.get_id(): 'g'})}
+        yield {'request': BEvent(name="ALL_DESCENDANTS_VISITED", data={i.get_id(): 'g'})}
         yield {'request': BEvent(name="CHECK_IF_FINISHED", data={i.get_id(): 'g'})}
 
 
@@ -112,7 +121,7 @@ def mark_node_as_visited(i):
 
 def mark_node_as_finished(i):
     while True:
-        yield {'waitFor': BEvent(name="ALL_NEIGHBORS_VISITED", data={i.get_id(): 'g'})}
+        yield {'waitFor': BEvent(name="ALL_DESCENDANTS_VISITED", data={i.get_id(): 'g'})}
         # FINISH
         finished_nodes.append(i)
 
@@ -147,7 +156,7 @@ if __name__ == "__main__":
                                   [sensor_2(i) for i in graph] +
                                   [visit_node(i) for i in graph] +
                                   [finish(i) for i in graph] +
-                                  [visit_neighbors(i) for i in graph] +
+                                  [visit_descendants(i) for i in graph] +
                                   [mark_node_as_visited(i) for i in graph] +
                                   [mark_node_as_finished(i) for i in graph] +
                                   [print_visited(i) for i in graph] +
