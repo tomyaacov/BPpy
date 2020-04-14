@@ -63,18 +63,6 @@ def sensor(i):
             yield {'request': BEvent(name="UNVISITED", data={i.get_id(): 'g'})}
 
 
-# backtracking sensor
-# waits for any CHECK_IF_FINISHED(n) event, checks whether the node n's children are finished and then requests
-# FINISHED(n) / UNFINISHED(n) accordingly.
-def sensor_2(i):
-    while True:
-        yield {'waitFor': BEvent(name="CHECK_IF_FINISHED", data={i.get_id(): 'g'})}
-        if i in finished_nodes:
-            yield {'request': BEvent(name="FINISHED", data={i.get_id(): 'g'})}
-        else:
-            yield {'request': BEvent(name="UNFINISHED", data={i.get_id(): 'g'})}
-
-
 # visit scenarios
 def visit_node(i):
     while True:
