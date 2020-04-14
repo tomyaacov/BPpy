@@ -24,7 +24,7 @@ class SimpleEventSelectionStrategy(EventSelectionStrategy):
                 possible_events.add(statement['request'])
         for statement in statements:
             if 'block' in statement:
-                possible_events.discard(statement['block'])
+                possible_events.difference_update(statement['block'])
         return possible_events
 
     def select(self, statements):
