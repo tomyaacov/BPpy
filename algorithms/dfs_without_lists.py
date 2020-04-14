@@ -67,17 +67,15 @@ def set_visited(i):
         yield {'block': set([BEvent(name="UNVISITED", data={i.get_id(): 'g'})] +
                             [BEvent(name="VISITED", data={i.get_id(): 'g'})] +
                             [BEvent(name="VISIT", data={i.get_id(): 'g'})])}
-    print("hi")
 
 
 def visit_neighbors(i):
-    while True:
-        yield {'waitFor': BEvent(name="VISITED", data={i.get_id(): 'g'})}
-        for j in i.get_neighbors():
-            yield {'request': BEvent(name="VISIT", data={j.get_id(): 'g'})}
-            # yield {'waitFor': BEvent(name="VISITED", data={j.get_id(): 'g'})}
-            yield {'waitFor': BEvent(name="ALL_NEIGHBORS_VISITED", data={j.get_id(): 'g'})}
-        yield {'request': BEvent(name="ALL_NEIGHBORS_VISITED", data={i.get_id(): 'g'})}
+    yield {'waitFor': BEvent(name="VISITED", data={i.get_id(): 'g'})}
+    for j in i.get_neighbors():
+        j.get_neighbors().remove(i)
+        yield {'request': BEvent(name="VISIT", data={j.get_id(): 'g'})}
+        yield {'waitFor': BEvent(name="ALL_NEIGHBORS_VISITED", data={j.get_id(): 'g'})}
+    yield {'request': BEvent(name="ALL_NEIGHBORS_VISITED", data={i.get_id(): 'g'})}
 
 
 # two append to list scenarios
@@ -90,9 +88,9 @@ def mark_node_as_visited(i):
 
 def mark_node_as_finished(i):
     while True:
-        yield {'waitFor': BEvent(name="ALL_NEIGHBORS_VISITED", data={i.get_id(): 'g'})}
-        # FINISH
-        yield {'request': BEvent(name="FINISHED", data={i.get_id(): 'g'})}
+        yield {'waitFor': BEvent(name="VISITED", data={i.get_id(): 'g'})}
+        if not i.get_neighbors():
+            yield {'request': BEvent(name="ALL_NEIGHBORS_VISITED", data={i.get_id(): 'g'})}
 
 
 def dfs_start():
@@ -107,7 +105,7 @@ if __name__ == "__main__":
                                   [finish(i) for i in graph] +
                                   [visit_neighbors(i) for i in graph] +
                                   [mark_node_as_visited(i) for i in graph] +
-                                  # [mark_node_as_finished(i) for i in graph] +
+                                  [mark_node_as_finished(i) for i in graph] +
                                   [set_visited(i) for i in graph] +
                                   [dfs_start()],
                          event_selection_strategy=BubbleEventSelectionStrategy(),
