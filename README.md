@@ -1,3 +1,7 @@
+# *** This Repository is Deprecated ***
+Check the updated repository: https://github.com/bThink-BGU/BPpy
+
+
 BPpy: Behavioral Programming In Python
 =
 
